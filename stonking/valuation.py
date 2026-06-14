@@ -49,17 +49,19 @@ def _ps_verdict(ps_ratio: float, industry: str, sector: str) -> dict:
     label = industry if industry in _PS_BY_INDUSTRY else sector
     pct = ((ps_ratio - benchmark) / benchmark) * 100
     if pct < -20:
-        verdict = f"Undervalued vs peers ({pct:+.1f}% vs {label} median P/S of {benchmark}x)"
+        rating = "Undervalued vs peers"
     elif pct > 20:
-        verdict = f"Overvalued vs peers ({pct:+.1f}% vs {label} median P/S of {benchmark}x)"
+        rating = "Overvalued vs peers"
     else:
-        verdict = f"In line with peers ({pct:+.1f}% vs {label} median P/S of {benchmark}x)"
+        rating = "In line with peers"
 
     return {
         "ps_ratio": round(ps_ratio, 2),
         "ps_benchmark": benchmark,
         "ps_benchmark_label": label,
-        "verdict": verdict,
+        "rating": rating,
+        "pct_diff": round(pct, 1),
+        "verdict": f"{rating} ({pct:+.1f}% vs {label} median P/S of {benchmark}x)",
     }
 
 
@@ -160,11 +162,13 @@ def assess(ticker: str, discount_rate: float = 0.10) -> dict:
     if price is not None:
         pct = ((price - iv) / iv) * 100
         if pct < -20:
-            verdict = f"Undervalued ({pct:+.1f}% vs intrinsic value)"
+            rating = "Undervalued"
         elif pct > 20:
-            verdict = f"Overvalued ({pct:+.1f}% vs intrinsic value)"
+            rating = "Overvalued"
         else:
-            verdict = f"Fairly valued ({pct:+.1f}% vs intrinsic value)"
-        result["verdict"] = verdict
+            rating = "Fairly valued"
+        result["rating"] = rating
+        result["pct_diff"] = round(pct, 1)
+        result["verdict"] = f"{rating} ({pct:+.1f}% vs intrinsic value)"
 
     return result
