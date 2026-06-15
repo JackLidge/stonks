@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 from .universe import get_universe_df
 from .valuation import assess
+from ._retry import RateLimiter, with_retry
 
 
 def scan_index(
@@ -12,7 +13,8 @@ def scan_index(
     discount_rate: float = 0.10,
     sectors: list[str] | None = None,
     industries: list[str] | None = None,
-    workers: int = 10,
+    workers: int = 5,
+    pause: float = 0.5,
 ) -> pd.DataFrame:
     """
     Run DCF/P-S valuation across an index and return results as a DataFrame.
@@ -23,7 +25,9 @@ def scan_index(
     discount_rate: DCF discount rate (default 0.10)
     sectors      : optional list of sectors to filter on (case-insensitive)
     industries   : optional list of industries to filter on (case-insensitive)
-    workers      : concurrent yfinance requests (default 10)
+    workers      : concurrent yfinance requests (default 5)
+    pause        : minimum seconds between requests across all workers (default 0.5)
+                   Increase to 1.0+ for large unfiltered indices like NASDAQ
 
     Returns
     -------
@@ -46,11 +50,13 @@ def scan_index(
         universe = universe[mask]
 
     tickers = universe["ticker"].tolist()
-    print(f"Scanning {len(tickers)} tickers from {index}...")
+    print(f"Scanning {len(tickers)} tickers from {index} at ≤{1/pause:.1f} req/s...")
+
+    limiter = RateLimiter(pause)
 
     def fetch(ticker):
         try:
-            return assess(ticker, discount_rate)
+            return with_retry(assess, ticker, discount_rate, rate_limiter=limiter)
         except Exception as e:
             return {"ticker": ticker, "verdict": f"Error: {e}", "method": None}
 
